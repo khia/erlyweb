@@ -327,14 +327,14 @@ get_forms(Module, Path) ->
     end.
 
 get_dirs_in_dir(Dir) ->
-    case file:list_dir(Dir) of 
+    case list_dir(Dir) of 
 	{error, _} ->
 	    undefined;
 	{ok, Listing} ->
 	    lists:foldl(
 	      fun (Name, Acc) ->
 		      Path = Dir ++ "/" ++ Name,
-		      case file:read_file_info(Path) of
+		      case read_file_info(Path) of
 			  {ok, #file_info{type=directory}} -> [Path | Acc];
 			  _ -> Acc
 		      end
@@ -369,7 +369,7 @@ get_forms_from_file_list(_Module, _Basedir, []) ->
     [];
 get_forms_from_file_list(Module, Basedir, [H|T]) ->
     Filename = H ++ "/" ++ atom_to_list(Module) ++ ".erl",
-    case file:read_file_info(Filename) of
+    case read_file_info(Filename) of
 	{ok, #file_info{type=regular}} ->
 	    epp:parse_file(Filename, [filename:dirname(Filename)], []);
 	_ ->
@@ -592,7 +592,7 @@ compile(MetaMod, Options) ->
 
     Forms1 = [{attribute, 1, file, {FileName, 1}} | Forms],
     Forms2 = Forms1 ++ lists:reverse(MetaMod#meta_mod.forms),
-    
+
     case compile:forms(Forms2, Options) of
 	{ok, Module, Bin} ->
 	    Res = 
@@ -606,10 +606,12 @@ compile(MetaMod, Options) ->
 		end,
 	    case Res of
 		ok ->
+		    Name = case code:which(Module) of
+			       non_existing -> atom_to_list(Module) ++ ".erl";
+			       Path -> Path
+			   end,
 		    code:purge(Module),
-		    case code:load_binary(
-			   Module,
-			   atom_to_list(Module) ++ ".erl", Bin) of
+		    case code:load_binary(Module, Name, Bin) of
 			{module, _Module} ->
 			    ok;
 			Err ->
@@ -1046,3 +1048,12 @@ to_src(MetaMod) ->
 to_src(MetaMod, FileName) ->
     Src = to_src(MetaMod),
     file:write_file(FileName, list_to_binary(Src)).
+
+%% The following is needed if we run code not from filesystem,
+%% but from code server.
+list_dir(Dir) -> erl_prim_loader_response(erl_prim_loader:list_dir(Dir)).
+read_file_info(Path) -> 
+    erl_prim_loader_response(erl_prim_loader:read_file_info(Path)).
+    
+erl_prim_loader_response(error) -> {error, erl_prim_loader};
+erl_prim_loader_response(Response) -> Response.

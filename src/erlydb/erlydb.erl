@@ -347,8 +347,17 @@ code_gen(Modules, Drivers, Options, IncludePaths, Macros) ->
 					{Id, default} ->
 					    {Id, Id}
 				    end,
+				Options2 = 
+				    case proplists:get_value(callback_module, Options) of
+					undefined -> Options;
+					Callback -> 
+					    try Callback:options(Driver, PoolId, Options) of
+						O -> O
+					    catch _:_ -> Options
+						  end
+				    end,
 				Metadata = DriverMod:get_metadata(
-					     [{pool_id, PoolId} | Options]),
+					     [{pool_id, PoolId} | Options2]),
 				{gb_trees:enter(
 				   PoolId, Metadata, Acc1), NewDefaultPool}
 			end, {gb_trees:empty(), undefined}, Pools1),

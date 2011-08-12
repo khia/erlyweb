@@ -131,6 +131,9 @@ start(mysql, Options) ->
 
 start(mnesia, Options) ->
     erlydb_mnesia:start(Options);
+
+start(odbc, Options) ->
+    erlydb_odbc:start(Options);
                          
 start(_Driver, _Options) ->
     {error, driver_not_supported}.

@@ -382,11 +382,15 @@ code_gen(Modules, Drivers, Options, IncludePaths, Macros) ->
 				  Options, IncludePaths, Macros)
       end, Modules).
 
-gen_module_code(ModulePath, DefaultDriverMod,
-	       DriversData, Options, IncludePaths, Macros) ->   
+gen_module_code(Module, DefaultDriverMod,
+	       DriversData, Options, IncludePaths, Macros) -> 
+    ModulePath = case proplists:get_value(src_dir, Options) of
+		     undefined -> Module;
+		     Dir -> filename:join(Dir, atom_to_list(Module) ++ ".erl")
+		 end,
     case smerl:for_module(ModulePath, IncludePaths, Macros) of
 	{ok, C1} ->
-	    C2 = preprocess_and_compile(C1),
+	    C2 = preprocess_and_compile(C1, Options),
 	    Module = smerl:get_module(C2),
 
 	    %% get the ErlyDB settings for the driver, taking the defaults
@@ -408,11 +412,17 @@ gen_module_code(ModulePath, DefaultDriverMod,
     	    case gb_trees:lookup(get_table(Module), TablesData) of
 		{value, Fields} ->
 		    ?Debug("Generating code for ~w", [Module]),
-		    Options2 = DriverOptions ++ Options,
+		    Options2 = DriverOptions,
 		    MetaMod =
 			make_module(DriverMod, C2, Fields,
 				    [{pool_id, PoolId} | Options2],
 				    TablesData),
+		    case proplists:get_value(debug, Options) of
+			true ->
+			    smerl:to_src(MetaMod, 
+					 atom_to_list(Module) ++ "_debug.erl");
+			_Else -> ok
+		    end,
 		    smerl:compile(MetaMod, Options);
 		none ->
 		    exit(
@@ -423,9 +433,9 @@ gen_module_code(ModulePath, DefaultDriverMod,
 	    Err
     end.
 
-preprocess_and_compile(MetaMod) ->
+preprocess_and_compile(MetaMod, Options) ->
     %% extend the base module, erlydb_base
-    M10 = smerl:extend(erlydb_base, MetaMod),
+    M10 = smerl:extend(erlydb_base, MetaMod, 0, Options),
 
     %% This is an optimization to avoid the remote function call
     %% to erlydb_base:set/3 in order to allow the compiler to decide to
@@ -500,7 +510,7 @@ make_module(DriverMod, MetaMod, DbFields, Options, TablesData) ->
     PkFields = filter_pk_fields(Fields),
     PkFieldNames = 
 	[erlydb_field:name(Field) || Field <- PkFields],
-    
+
     {ok, M24} = smerl:curry_replace(MetaMod, db_pk_fields, 1, [PkFields]),
 
     M26 = add_pk_fk_field_names(M24, PkFieldNames),

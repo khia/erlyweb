@@ -184,11 +184,10 @@ start(_Options) ->
 get_metadata(_Options) ->
 	% NOTE Integration with mnesia_rdbms would be interesting...
     Tables = mnesia:system_info(tables) -- [schema],
-    Tree = lists:foldl(
+    lists:foldl(
 			fun(Table, TablesTree) ->
             	gb_trees:enter(Table, get_metadata(Table, table_fields(Table)), TablesTree)
-        	end, gb_trees:empty(), Tables),
-	{ok, Tree}.
+        	end, gb_trees:empty(), Tables).
 
 get_metadata(Table, Fields) when is_list(Fields) ->
     [get_metadata(Table, Field) || Field <- Fields];

@@ -1,0 +1,13 @@
+{application, erlyweb,
+ [
+  {description, "ErlyWeb is a web development framework for Erlang."},
+  {vsn, "0.7.3"},
+  {modules, [
+	    ]},
+  {registered, []},
+  {applications, [
+                  kernel,
+                  stdlib
+                 ]},
+  {env, []}
+ ]}.
